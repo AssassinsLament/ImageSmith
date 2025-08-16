@@ -61,18 +61,16 @@ def upscale_command(bot):
     )
     @app_commands.describe(
         image="The image to upscale",
-        prompt="Description of the changes you want to make",
         workflow="The workflow to use (optional)",
         settings="Additional settings (optional)"
     )
     async def upscale(
             interaction: discord.Interaction,
             image: discord.Attachment,
-            prompt: str,
             workflow: Optional[str] = None,
             settings: Optional[str] = None
     ):
-        await bot.handle_generation(interaction, 'upscale', prompt, workflow, settings, image)
+        await bot.handle_generation(interaction, 'upscale', None, workflow, settings, image)
 
     return upscale
 
