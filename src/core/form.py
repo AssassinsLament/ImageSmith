@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set
+
 import discord
 from discord import ui
 
@@ -147,6 +148,29 @@ class SelectFieldHandler(FormFieldHandler):
 
     async def process_value(self, values: List[str]) -> List[str]:
         return values
+
+    def requires_modal(self) -> bool:
+        return False
+
+class ChooseFieldHandler(SelectFieldHandler):
+    """Handler for single-choice selection fields"""
+    def __init__(self):
+        super().__init__(max_values=1)
+
+    def create_component(self, field: FormField) -> ui.Select:
+        options = [
+            discord.SelectOption(label=option['name'], value=option['value'])
+            for option in field.options or []
+        ]
+        return ui.Select(
+            placeholder=field.description,
+            options=options,
+            max_values=len(options) if self.max_values is None else self.max_values,
+            custom_id=f"form_field_{field.name}"
+        )
+
+    async def process_value(self, values: List[str]) -> str:
+        return values[0] if values and len(values) > 0 else ""
 
     def requires_modal(self) -> bool:
         return False
@@ -311,6 +335,7 @@ class DynamicFormManager:
             'text': TextFieldHandler(),
             'resolution': ResolutionFieldHandler(),
             'select': SelectFieldHandler(),
+            'choose': ChooseFieldHandler(),
         }
 
     def register_field_handler(self, field_type: str, handler: FormFieldHandler):

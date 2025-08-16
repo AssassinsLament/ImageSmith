@@ -40,3 +40,5 @@ htmlcov/
 
 /plugins
 !/plugins/__init__.py
+/workflows
+!/workflows/__init__.py
