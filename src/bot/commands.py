@@ -51,6 +51,31 @@ def reforge_command(bot):
 
     return reforge
 
+def swap_command(bot):
+    """Create the swap command for image-to-image with two images"""
+
+    @app_commands.command(
+        name="swap",
+        description="Swap features between two images using image-to-image"
+    )
+    @app_commands.describe(
+        image1="The first image to swap",
+        image2="The second image to swap",
+        prompt="Description of the changes you want to make (optional)",
+        workflow="The workflow to use (optional)",
+        settings="Additional settings (optional)"
+    )
+    async def swap(
+        interaction: discord.Interaction,
+        image1: discord.Attachment,
+        image2: discord.Attachment,
+        prompt: Optional[str] = None,
+        workflow: Optional[str] = None,
+        settings: Optional[str] = None
+    ):
+        await bot.handle_generation(interaction, 'swap', prompt, workflow, settings, image1, image2)
+
+    return swap
 
 def upscale_command(bot):
     """Create the upscale command"""

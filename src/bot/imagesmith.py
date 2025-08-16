@@ -2,24 +2,25 @@ import importlib
 import inspect
 import io
 import sys
-
 from pathlib import Path
 from typing import Optional
-from PIL import Image
 
 import discord
 from discord.ext import commands
+from PIL import Image
 
 from logger import logger
 from tests.comfy.test_instance import instance
-from .commands import forge_command, reforge_command, upscale_command, workflows_command
+
+from ..comfy.client import ComfyUIClient
 from ..comfy.load_balancer import LoadBalanceStrategy
 from ..comfy.workflow_manager import WorkflowManager
 from ..core.form import DynamicFormManager
-from ..core.hook_manager import HookManager
 from ..core.generation_queue import GenerationQueue
-from ..comfy.client import ComfyUIClient
-from ..core.security import SecurityManager, BasicSecurity, SecurityResult
+from ..core.hook_manager import HookManager
+from ..core.security import BasicSecurity, SecurityManager, SecurityResult
+from .commands import (forge_command, reforge_command, swap_command,
+                       upscale_command, workflows_command)
 
 
 class ComfyUIBot(commands.Bot):
@@ -79,6 +80,7 @@ class ComfyUIBot(commands.Bot):
         try:
             self.tree.add_command(forge_command(self))
             self.tree.add_command(reforge_command(self))
+            self.tree.add_command(swap_command(self))
             self.tree.add_command(upscale_command(self))
             self.tree.add_command(workflows_command(self))
 
@@ -201,7 +203,8 @@ class ComfyUIBot(commands.Bot):
                                 prompt: str,
                                 workflow: Optional[str] = None,
                                 settings: Optional[str] = None,
-                                input_image: Optional[discord.Attachment] = None):
+                                input_image: Optional[discord.Attachment] = None,
+                                input_image2: Optional[discord.Attachment] = None):
         """Handle image generation for all command types"""
         try:
             workflow_name = workflow or self.workflow_manager.get_default_workflow(workflow_type,
@@ -271,7 +274,27 @@ class ComfyUIBot(commands.Bot):
                         )
                     )
                     return
-
+                    
+            if workflow_type == 'swap':
+                if not input_image or not input_image2:
+                    await interaction.response.send_message(
+                        embed=discord.Embed(
+                            title="❌ Error",
+                            description="Two image inputs are required for this workflow type!",
+                            color=0xFF0000
+                        )
+                    )
+                    return
+                for img in [input_image, input_image2]:
+                    if not img.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                        await interaction.response.send_message(
+                            embed=discord.Embed(
+                                title="❌ Error",
+                                description="Invalid image format. Supported formats: PNG, JPG, JPEG, WEBP",
+                                color=0xFF0000
+                            )
+                        )
+                        return
             embed = discord.Embed(title="🔨 ImageSmith Forge", color=0x2F3136)
             queue_position = self.generation_queue.get_queue_position()
             status = f"⏳ Queued (Position: {queue_position + 1})" if queue_position > 0 else "Starting generation..."
@@ -289,23 +312,44 @@ class ComfyUIBot(commands.Bot):
 
             image = None
             input_image_file = None
+            image2 = None
+            input_image_file2 = None
             instance = None
-            if input_image:
+            if workflow_type == 'swap':
+                input_image_file = await input_image.read()
+                input_image_file2 = await input_image2.read()
+                uploaded_image = await self.comfy_client.upload_image(input_image_file)
+                uploaded_image2 = await self.comfy_client.upload_image(input_image_file2)
+                image = uploaded_image[0]
+                image2 = uploaded_image2[0]
+                # We want to use the same instance for the image upload and generation
+                instance = uploaded_image[1]
+            elif input_image:
                 input_image_file = await input_image.read()
                 uploaded_image = await self.comfy_client.upload_image(input_image_file)
                 image = uploaded_image[0]
-                # We want to use the same instance for the image upload and generation
                 instance = uploaded_image[1]
 
             async def run_generation():
                 try:
-                    workflow_json = self.workflow_manager.prepare_workflow(
-                        workflow_name,
-                        prompt,
-                        settings,
-                        image,
-                        Image.open(io.BytesIO(input_image_file)) if input_image_file else None,
-                    )
+                    if workflow_type == 'swap':                                             
+                        workflow_json = self.workflow_manager.prepare_workflow(
+                            workflow_name,
+                            prompt,
+                            settings,                                                                  
+                            image,                                                                     
+                            Image.open(io.BytesIO(input_image_file)) if input_image_file else None,
+                            image2,
+                            Image.open(io.BytesIO(input_image_file2)) if input_image_file2 else None,
+                        )
+                    else:
+                        workflow_json = self.workflow_manager.prepare_workflow(
+                            workflow_name,
+                            prompt,
+                            settings,
+                            image,
+                            Image.open(io.BytesIO(input_image_file)) if input_image_file else None,
+                        )                                                       
                     modified_workflow_json = await self.form_manager.process_workflow_form(
                         interaction,
                         workflow_config,

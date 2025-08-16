@@ -29,7 +29,11 @@ class WorkflowManager:
         logger.info(f"Using ComfyUI input directory: {self.input_dir}")
 
     def update_workflow_nodes(self, workflow_json: dict, workflow_config: dict,
-                              prompt: str = None, image: dict = None) -> dict:
+                         prompt: str = None, 
+                         image: dict = None,
+                         input_image: Optional['Image.Image'] = None,
+                         image2: dict = None, 
+                         input_image2: Optional['Image.Image'] = None) -> dict:                        
         """Update workflow nodes with prompt and/or image data"""
         modified_workflow = workflow_json.copy()
 
@@ -61,7 +65,22 @@ class WorkflowManager:
             except Exception as e:
                 logger.error(f"Error updating image node: {e}")
                 raise ValueError(f"Failed to process input image: {str(e)}")
-
+                
+        # Update second image if provided and node is configured
+        if image2 and 'image_input_node_id2' in workflow_config:
+            try:
+                node_id2 = str(workflow_config['image_input_node_id2'])
+                if node_id2 not in modified_workflow:
+                    raise ValueError(f"Node ID {node_id2} not found in workflow")
+                node2 = modified_workflow[node_id2]
+                if 'inputs' in node2 and 'image' in node2['inputs']:
+                    node2['inputs']['image'] = image2['name']
+                    logger.debug(f"Updated second image in node {node_id2} with filename: {image2['name']}")
+                else:
+                    raise ValueError(f"Node {node_id2} does not have 'image' input")
+            except Exception as e:
+                logger.error(f"Error updating second image node: {e}")
+                raise ValueError(f"Failed to process second input image: {str(e)}")
         return modified_workflow
 
     def _load_config(self, config_path: str) -> dict:
@@ -199,7 +218,9 @@ class WorkflowManager:
     def prepare_workflow(self, workflow_name: str, prompt: str = None,
                          settings: Optional[str] = None,
                          image: Optional[dict] = None,
-                         input_image: Optional[Image.Image] = None) -> dict:
+                         input_image: Optional[Image.Image] = None,
+                         image2: Optional[dict] = None,
+                         input_image2: Optional[Image.Image] = None) -> dict:
         """Prepare a workflow with prompt, settings, and image data"""
         try:
             workflow_config = self.get_workflow(workflow_name)
@@ -210,12 +231,25 @@ class WorkflowManager:
             workflow_json = self.load_workflow_file(workflow_config['workflow'])
 
             # Update nodes with prompt and image
-            workflow_json = self.update_workflow_nodes(
-                workflow_json,
-                workflow_config,
-                prompt,
-                image
-            )
+            # For dual-image workflows, pass both images
+            if image2 is not None or input_image2 is not None:
+                workflow_json = self.update_workflow_nodes(
+                    workflow_json,
+                    workflow_config,
+                    prompt,
+                    image,
+                    input_image,
+                    image2,
+                    input_image2
+                )
+            else:
+                workflow_json = self.update_workflow_nodes(
+                    workflow_json,
+                    workflow_config,
+                    prompt,
+                    image,
+                    input_image
+                )
 
             # Apply settings
             workflow_json = self.apply_settings(workflow_json, workflow_config, settings, input_image)
