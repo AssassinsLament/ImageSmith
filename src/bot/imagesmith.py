@@ -19,8 +19,8 @@ from ..core.form import DynamicFormManager
 from ..core.generation_queue import GenerationQueue
 from ..core.hook_manager import HookManager
 from ..core.security import BasicSecurity, SecurityManager, SecurityResult
-from .commands import (forge_command, reforge_command, swap_command,
-                       upscale_command, workflows_command)
+from .commands import (forge_command, reforge_command, showhelp_command,
+                       swap_command, upscale_command, workflows_command)
 
 
 class ComfyUIBot(commands.Bot):
@@ -83,6 +83,7 @@ class ComfyUIBot(commands.Bot):
             self.tree.add_command(swap_command(self))
             self.tree.add_command(upscale_command(self))
             self.tree.add_command(workflows_command(self))
+            self.tree.add_command(showhelp_command(self))
 
             commands = await self.tree.sync()
             logger.info(f"Registered {len(commands)} Discord commands:")

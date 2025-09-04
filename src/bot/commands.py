@@ -4,6 +4,37 @@ import discord
 from discord import app_commands
 
 
+def showhelp_command(bot):
+    """Create the show command to display a text file's contents"""
+
+    @app_commands.command(
+        name="showhelp",
+        description="Show the contents of the commands.txt file"
+    )
+    async def showhelp(
+        interaction: discord.Interaction
+    ):
+        import os
+        file_path = os.path.join(os.path.dirname(__file__), "..\\..\\assets", "commands.txt")
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            # Discord message limit is 2000 chars, use 1900 for safety
+            chunk_size = 1900
+            chunks = [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
+            first = True
+            for chunk in chunks:
+                msg = f"**COMMANDS:**\n```\n{chunk}\n```" if first else f"```\n{chunk}\n```"
+                if first:
+                    await interaction.response.send_message(msg, ephemeral=True)
+                    first = False
+                else:
+                    await interaction.followup.send(msg, ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Could not read `commands.txt`: {e}", ephemeral=True)
+
+    return showhelp
+
 def forge_command(bot):
     """Create the forge command for txt2img generation"""
 
@@ -233,6 +264,7 @@ def workflows_command(bot):
                 type_emojis = {
                     'txt2img': '✍️',
                     'img2img': '🖼️',
+                    'swap': '🖼️🖼️',
                     'upscale': '🔍'
                 }
                 type_emoji = type_emojis.get(wf_type, '⚡')

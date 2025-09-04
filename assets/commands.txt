@@ -1,0 +1,10 @@
+[ /forge ] --------------------------------------------------------------------------
+
+- a text to image (txt2img) command that generates an image from a given <prompt>
+  customization:
+    - Image Resolution (optional) - sets the desired resolution
+  settings:
+    - jlin (optional) - adds the jlin (lora model)
+    - ntxhee (optional) - adds the ntxhee (lora model)
+
+--------------------------------------------------------------------------------------
